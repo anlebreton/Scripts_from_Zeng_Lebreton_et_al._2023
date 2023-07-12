@@ -1,0 +1,27 @@
+{
+    "id": "1438629C",
+    "path": "/Volumes/Hungry/Yulong/metabarcoding/Yulong_R_scripts/alluvial_taxonomie.R",
+    "project_path": "alluvial_taxonomie.R",
+    "type": "r_source",
+    "hash": "1937627881",
+    "contents": "",
+    "dirty": false,
+    "created": 1680530078998.0,
+    "source_on_save": false,
+    "relative_order": 11,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "119,46",
+        "scrollLine": "113"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1680588794,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1680588794622,
+    "read_only": false,
+    "read_only_alternatives": []
+}

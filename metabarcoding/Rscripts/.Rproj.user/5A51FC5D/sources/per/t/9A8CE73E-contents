@@ -1,0 +1,250 @@
+library("readr")
+library("plyr");library("dplyr");library("ggplot2");library("tidyr");library("tidyverse")
+library("RColorBrewer");library("ggpubr");library("vegan")
+
+
+"%notin%" <- Negate("%in%")
+
+GetMyColor <- function(colDF){
+  mycolorsCAZymes <- read.csv("../../mycolorFile.txt",sep="\t")
+  mycolors <- mycolorsCAZymes %>% filter(Name %in% colDF)
+  mycolors <- mycolors %>% arrange(myLevel)
+  mycolor <- mycolors$color
+  names(mycolor) <- mycolors$Name
+  #colDF <- factor(colDF, levels=mycolors$Name
+  return(mycolor)
+}
+
+
+##### READ ALL SITES FILE
+#############################
+
+#ALL_SITES_table <- read_delim("../1_data/ALL_SITES_raw_counts.txt", "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE)
+treatment_metadata <- as.data.frame(read_delim("../0_metadata/metadata_all.txt", "\t", escape_double = FALSE, trim_ws = TRUE))
+treatment_metadata$layer_tree <- paste( treatment_metadata$layer,treatment_metadata$tree_species, sep="_")
+treatment_metadata$Layer <- treatment_metadata$layer
+treatment_metadata <- treatment_metadata %>% mutate(layer=case_when(layer != "OS" ~ layer, TRUE ~ "OS: 0 - 5cm")) 
+treatment_metadata <- treatment_metadata %>% mutate(layer=case_when(layer != "OM" ~ layer, TRUE ~ "OM: 5 - 25cm"))
+treatment_metadata$layer <- factor(treatment_metadata$layer, levels=c("OS: 0 - 5cm","OM: 5 - 25cm" ))
+#data_table <- ALL_SITES_table 
+#data_table <- ALL_SITES_table %>% 
+#  select(cols=-c("MEROPS_coverage", "MEROPS_evalue","MEROPS_score" )) ## save original table
+
+Fungi_TPM <- read_delim("../1_data/ALL_SITES_Fungi_TPM.txt", "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE) %>%
+  filter(tax_kingdom %in% "Fungi", PD_Name %notin% c("Batde5","Crypa2","Pospl1")) %>% 
+  select(cols=-c("MEROPS_coverage", "MEROPS_evalue","MEROPS_score" ))
+
+
+############ TAX PHYLUM ###############
+
+t1 <- Fungi_TPM %>%
+  filter(!is.na(tax_phylum)) %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  #filter(grepl('saprotroph',LifeStyle) ) %>%
+  group_by(tax_phylum) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(tax_phylum), names_to="samples", values_to="tpm_counts")%>%
+  group_by(tax_phylum) %>% summarise(max=max(tpm_counts), mean=mean(tpm_counts), median=median(tpm_counts)) %>% 
+  slice_max(.,order_by = max,n=5)
+t2 <- Fungi_TPM %>%
+  filter(!is.na(tax_phylum)) %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  #filter(grepl('saprotroph',LifeStyle) ) %>%
+  group_by(tax_phylum) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(tax_phylum), names_to="samples", values_to="tpm_counts")%>%
+  group_by(tax_phylum) %>% summarise(max=max(tpm_counts), mean=mean(tpm_counts), median=median(tpm_counts)) %>% 
+  slice_max(.,order_by = median,n=5)
+t3 <- Fungi_TPM %>%
+  filter(!is.na(tax_phylum)) %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  #filter(grepl('saprotroph',LifeStyle) ) %>%
+  group_by(tax_phylum) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(tax_phylum), names_to="samples", values_to="tpm_counts")%>%
+  group_by(tax_phylum) %>% summarise(max=max(tpm_counts), mean=mean(tpm_counts), median=median(tpm_counts)) %>% 
+  slice_max(.,order_by = mean,n=5)
+
+topPhyla <- unique(c(t1$tax_phylum,t2$tax_phylum,t3$tax_phylum))
+
+
+adjusted_reads_perSample <- 1000000
+
+stat_phylum <- Fungi_TPM %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  mutate(tax_phylum = case_when(tax_phylum %in% topPhyla ~ tax_phylum, TRUE ~ "Others")) %>%
+  group_by(tax_phylum) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(tax_phylum), names_to="samples", values_to="tpm_counts") %>%
+  left_join(treatment_metadata) %>%
+  group_by(tax_phylum) %>% summarise(max=round((max(tpm_counts)/adjusted_reads_perSample)*100, digits = 1),
+                                    mean=round((mean(tpm_counts)/adjusted_reads_perSample)*100,digits = 1),
+                                    median=round((median(tpm_counts)/adjusted_reads_perSample)*100,digits = 1))
+
+
+Fungi_ratio <- Fungi_TPM %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  mutate(tax_phylum = case_when(tax_phylum %in% topPhyla ~ tax_phylum, TRUE ~ "Others")) %>%
+  group_by(tax_phylum) %>% summarise_if(is.numeric, sum) %>% 
+  pivot_longer(cols=-c(tax_phylum), names_to="samples", values_to="tpm_counts") %>%
+  left_join(treatment_metadata) %>%
+  #group_by(samples) %>% mutate(perc_tpm=(tpm_counts/sum(tpm_counts))*100)
+  group_by(layer_tree) %>% mutate(perc_tpm=(tpm_counts/sum(tpm_counts))*100) #%>%
+  group_by(tax_phylum, layer_tree, tree_species, Layer) %>% summarise_if(is.numeric, sum) 
+
+
+  # group_by(tax_phylum, layer_tree) %>% summarise(max=round((max(tpm_counts)/adjusted_reads_perSample)*100, digits = 1),
+  #                                    mean=round((mean(tpm_counts)/adjusted_reads_perSample)*100,digits = 1),
+  #                                    median=round((median(tpm_counts)/adjusted_reads_perSample)*100,digits = 1))
+
+mycolors <- GetMyColor(Fungi_ratio$tax_phylum)
+Fungi_ratio$tax_phylum <- factor(Fungi_ratio$tax_phylum, levels=names(mycolors)) 
+
+ggplot(data=Fungi_ratio, aes(x=layer_tree, y=perc_tpm, fill=tax_phylum)) +
+  theme(axis.text.x=element_text(angle = 55,hjust=1))+ 
+  geom_col() + #facet_wrap(. ~ layer*tree_species, scales = "free_x") + theme(axis.text.x=element_text(angle = 55,hjust=1)) +
+  scale_fill_manual(values=mycolors)
+
+ggplot(data=Fungi_ratio, aes(x=tax_phylum, y=perc_tpm, fill=layer_tree)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle = 55,hjust=1))#+ 
+  #facet_grid(.~ layer)
+################
+
+t1 <- Fungi_TPM %>%
+  filter(!is.na(PD_Order)) %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  #filter(grepl('saprotroph',LifeStyle) ) %>%
+  group_by(PD_Order) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(PD_Order), names_to="samples", values_to="tpm_counts")%>%
+  group_by(PD_Order) %>% summarise(max=max(tpm_counts), mean=mean(tpm_counts), median=median(tpm_counts)) %>% 
+  slice_max(.,order_by = max,n=15)
+t2 <- Fungi_TPM %>%
+  filter(!is.na(PD_Order)) %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  #filter(grepl('saprotroph',LifeStyle) ) %>%
+  group_by(PD_Order) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(PD_Order), names_to="samples", values_to="tpm_counts")%>%
+  group_by(PD_Order) %>% summarise(max=max(tpm_counts), mean=mean(tpm_counts), median=median(tpm_counts)) %>% 
+  slice_max(.,order_by = median,n=10)
+t3 <- Fungi_TPM %>%
+  filter(!is.na(PD_Order)) %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  #filter(grepl('saprotroph',LifeStyle) ) %>%
+  group_by(PD_Order) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(PD_Order), names_to="samples", values_to="tpm_counts")%>%
+  group_by(PD_Order) %>% summarise(max=max(tpm_counts), mean=mean(tpm_counts), median=median(tpm_counts)) %>% 
+  slice_max(.,order_by = mean,n=10)
+
+topPhyla <- unique(c(t1$PD_Order,t2$PD_Order,t3$PD_Order))
+
+
+adjusted_reads_perSample <- 1000000
+
+stat_phylum <- Fungi_TPM %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  mutate(PD_Order = case_when(PD_Order %in% topPhyla ~ PD_Order, TRUE ~ "Others")) %>%
+  group_by(PD_Order) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(PD_Order), names_to="samples", values_to="tpm_counts") %>%
+  left_join(treatment_metadata) %>%
+  group_by(PD_Order) %>% summarise(max=round((max(tpm_counts)/adjusted_reads_perSample)*100, digits = 1),
+                                     mean=round((mean(tpm_counts)/adjusted_reads_perSample)*100,digits = 1),
+                                     median=round((median(tpm_counts)/adjusted_reads_perSample)*100,digits = 1))
+
+
+Fungi_ratio <- Fungi_TPM %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  mutate(PD_Order = case_when(PD_Order %in% topPhyla ~ PD_Order, TRUE ~ "Others")) %>%
+  group_by(PD_Order) %>% summarise_if(is.numeric, sum) %>% 
+  pivot_longer(cols=-c(PD_Order), names_to="samples", values_to="tpm_counts") %>%
+  left_join(treatment_metadata) %>%
+  #group_by(samples) %>% mutate(perc_tpm=(tpm_counts/sum(tpm_counts))*100)
+  group_by(layer_tree) %>% mutate(perc_tpm=(tpm_counts/sum(tpm_counts))*100) #%>%
+group_by(PD_Order, layer_tree, tree_species, Layer) %>% summarise_if(is.numeric, sum) 
+
+
+# group_by(tax_phylum, layer_tree) %>% summarise(max=round((max(tpm_counts)/adjusted_reads_perSample)*100, digits = 1),
+#                                    mean=round((mean(tpm_counts)/adjusted_reads_perSample)*100,digits = 1),
+#                                    median=round((median(tpm_counts)/adjusted_reads_perSample)*100,digits = 1))
+
+mycolors <- GetMyColor(Fungi_ratio$PD_Order)
+Fungi_ratio$PD_Order <- factor(Fungi_ratio$PD_Order, levels=names(mycolors)) 
+
+ggplot(data=Fungi_ratio, aes(x=layer_tree, y=perc_tpm, fill=PD_Order)) +
+  theme(axis.text.x=element_text(angle = 55,hjust=1))+ 
+  geom_col() + #facet_wrap(. ~ layer*tree_species, scales = "free_x") + theme(axis.text.x=element_text(angle = 55,hjust=1)) +
+  scale_fill_manual(values=mycolors)
+
+ggplot(data=Fungi_ratio, aes(x=tax_phylum, y=perc_tpm, fill=layer_tree)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle = 55,hjust=1))#+ 
+#facet_grid(.~ layer)
+
+
+
+#############
+
+
+#install.packages("ggalluvial")
+library(ggalluvial)
+
+Fungi_ratio <- Fungi_TPM %>%
+  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
+  mutate(PD_Order = case_when(PD_Order %in% topPhyla ~ PD_Order, TRUE ~ "Others")) %>%
+  filter(PD_Order != "Others") %>%
+  group_by(PD_Genus,PD_Family, PD_Order, PD_Phylum) %>% summarise_if(is.numeric, sum) %>% 
+  pivot_longer(cols=-c(PD_Genus, PD_Family, PD_Order, PD_Phylum), names_to="samples", values_to="tpm_counts") %>%
+  left_join(treatment_metadata)
+
+Fungi_ratio2 <- Fungi_ratio %>% group_by(tree_species) %>% 
+                            mutate(perc_tpm=(tpm_counts/sum(tpm_counts))*100) %>%
+                            group_by(PD_Order, tree_species) %>% 
+                              summarise_if(is.numeric, sum) %>%
+                            select(PD_Order, tree_species,perc_tpm )
+
+is_alluvia_form(as.data.frame(Fungi_ratio2), axes = 1:2, silent = TRUE)
+
+myColorTree = GetMyColor(Fungi_ratio2$tree_species)
+myColorOrder = GetMyColor(Fungi_ratio2$PD_Order)
+myColorFull = c(GetMyColor(Fungi_ratio2$tree_species),  GetMyColor(Fungi_ratio2$PD_Order))
+
+ggplot(as.data.frame(Fungi_ratio2),
+       aes(y = perc_tpm, axis1 = PD_Order, axis2 = tree_species)) +
+  geom_alluvium(aes(fill = tree_species), width = 1/12) +
+  geom_stratum(width = 1/12, color = "grey") +
+  scale_fill_manual(values = myColorTree) +
+  scale_color_manual(values = myColorFull) +
+  geom_text(
+    aes(
+      label = after_stat(stratum),
+      hjust=1,
+      #hjust = ifelse(Condition == "Condition1", 1, 0),
+      #x = as.numeric(factor(Condition)) + .075 * ifelse(Condition == "Condition1", -1, 1),
+      color = "grey"
+    ),
+    stat = "stratum", fontface = "bold", 
+    size = 3
+  )+
+  #geom_label(stat = "stratum", aes(label = after_stat(stratum)),ifelse(Condition == "Condition1", 1, 0)) +
+  scale_x_discrete(limits = c("Order", "Tree species"), expand = c(0.5, 0.5)) +
+  #ggtitle("UC Berkeley admissions and rejections, by sex and department")+
+  scale_y_continuous(breaks = NULL) +
+  theme_minimal() +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_blank()
+  ) +
+  theme(legend.position = "none") +
+  ylab(NULL)
+
+
+
+
+#################
+ install.packages("remotes")
+ remotes::install_github("davidsjoberg/ggsankey")
+library(ggsankey)
+df <- mtcars %>%
+  make_long(cyl, vs, am, gear, carb)
+
+head(Fungi_ratio2)
+head(df)
+ggplot(Fungi_ratio2, aes(x = PD_Order, 
+               next_x = tree_species, 
+               node = 1, 
+               next_node = 2,
+               fill = factor(tree_species))
+       ) +
+  geom_sankey()
+
+

@@ -1,0 +1,27 @@
+{
+    "id": "D7D623F4",
+    "path": "/Volumes/Hungry/Yulong/metabarcoding/Yulong_R_scripts/Difference_Abundance_test-ITS1.R",
+    "project_path": "Difference_Abundance_test-ITS1.R",
+    "type": "r_source",
+    "hash": "2920931799",
+    "contents": "",
+    "dirty": false,
+    "created": 1650357971454.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "99,0",
+        "scrollLine": "74"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1680589742,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1680589742427,
+    "read_only": false,
+    "read_only_alternatives": []
+}
