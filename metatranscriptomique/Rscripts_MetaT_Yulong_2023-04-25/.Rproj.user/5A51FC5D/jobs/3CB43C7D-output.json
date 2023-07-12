@@ -1,0 +1,7 @@
+[1,"Installing 'patchwork' ...\n"]
+[2,"trying URL 'https://cran.rstudio.com/bin/macosx/big-sur-x86_64/contrib/4.3/patchwork_1.1.2.tgz'\n"]
+[2,"Content type 'application/x-gzip' length 3240541 bytes (3.1 MB)\n"]
+[2,"==================================================\ndownloaded 3.1 MB\n\n"]
+[1,"The downloaded binary packages are in\n"]
+[1,"\t/var/folders/s6/sl95b6612s9glzfz478r76k00000gp/T//RtmpGUO5jq/downloaded_packages\n"]
+[2,"\n\n✔ Package 'patchwork' successfully installed.\n"]

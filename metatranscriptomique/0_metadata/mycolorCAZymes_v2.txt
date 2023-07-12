@@ -1,0 +1,85 @@
+Name	color	Group	myLevel	Substrate	Type
+GH79	#F768A1	CAZymes	1	Glucuronans	BCW
+GH25	#AE017E	CAZymes	2	Peptidoglycan	BCW
+AA11-CBM50	#FFF5EB	CAZymes	3	Chitin	FCW
+CBM5	#FEE6CE	CAZymes	4	Chitin	FCW
+CBM50	#FDD0A2	CAZymes	5	Chitin	FCW
+CE4	#FDAE6B	CAZymes	6	Chitin	FCW
+GH18	#F16913	CAZymes	7	Chitin	FCW
+GT2	#A63603	CAZymes	8	Chitin	FCW
+GH128	#D94801	CAZymes	9	Glucan	FCW
+GH16	#D94801	CAZymes	10	Glucan	FCW
+GH16_1	#A63603	CAZymes	11	Glucan	FCW
+GH16_10	#7F2704	CAZymes	12	Glucan	FCW
+GH17	#361a00	CAZymes	13	Glucan	FCW
+GH71	#e3b900	CAZymes	14	Glucan	FCW
+GH47	#e8d45f	CAZymes	15	Mannan	FCW
+Others	grey	NA	0	NA	NA
+GT1	#6BAED6	CAZymes	17	Unknown	Other
+GT15	#BDD7E7	CAZymes	18	Unknown	Other
+GT34	#3182BD	CAZymes	19	Unknown	Other
+GT39	navyblue	CAZymes	20	Unknown	Other
+GT4	#08519C	CAZymes	21	Unknown	Other
+AA3	#F7FCF5	CAZymes	22	Cellobiose	PCW
+AA9	#E5F5E0	CAZymes	23	Cellulose	PCW
+GH7	#C7E9C0	CAZymes	24	Cellulose	PCW
+CBM13	#A1D99B	CAZymes	25	Hemicellulose	PCW
+CE16	#74C476	CAZymes	26	Hemicellulose	PCW
+GH11	#35978F	CAZymes	27	Hemicellulose	PCW
+GH54	#238B45	CAZymes	28	Hemicellulose	PCW
+AA2	#006D2C	CAZymes	29	Lignin	PCW
+AA5	#35978F	CAZymes	30	Unknown	PCW
+AA6	#00441B	CAZymes	31	Unknown	PCW
+GH5_24	#8C510A	CAZymes	32	Cellulose/Glucans	PCW/FCW
+GH5_9	#BF812D	CAZymes	33	Cellulose/Glucans	PCW/FCW
+GT35	black	CAZymes	34	Starch/Glycogen	Storage
+Auxiliary Activity	steelblue	Type	1		
+BCW	#AE017E	Type	1		
+BCW/PCW	#7d0036	Type	1		
+FCW	#f5ba67	Type	1		
+MCW	navyblue	Type	1		
+PCW	#35978F	Type	1		
+PCW/FCW	#8C510A	Type	1		
+Storage	black	Type	1		
+Unidentified	white	NA	-1		
+Unidentified__Others	white		0		
+Unidentified__ectomycorrhizal	#f3ffd6		0		
+Unidentified__saprotroph	#cffaf4		0		
+Others__Others	grey		0		
+Others__saprotroph	darkgrey		0		
+Auxiliary Activity__Others	lightblue		6		
+Auxiliary Activity__ectomycorrhizal	steelblue		7		
+Auxiliary Activity__saprotroph	navyblue		8		
+BCW__Others	pink		9		
+BCW__ectomycorrhizal	#AE017E		10		
+BCW__saprotroph	#7d0036		11		
+FCW__Others	#e3b900		12		
+FCW__ectomycorrhizal	orange		13		
+FCW__saprotroph	#A63603		14		
+PCW__Others	#A1D99B		15		
+PCW__ectomycorrhizal	#238B45		16		
+PCW__saprotroph	#00441B		17		
+PCW/FCW__Others	#BF812D		18		
+PCW/FCW__ectomycorrhizal	#8C510A		19		
+PCW/FCW__saprotroph	#4a2100		20		
+Storage__Others	black		21		
+Storage__ectomycorrhizal	#16665f		22		
+Storage__saprotroph	#1f3f4a		23		
+Glucoronans	#F768A1		1		
+Peptidoglycan	#AE017E		2		
+Chitin	#F16913		3		
+Galactosaminogalactan	red		4		
+Glucan	#e3b900		5		
+Mannan	#A63603		6		
+Cellobiose	#F7FCF5		7		
+Cellulose	#A1D99B		8		
+Pectin	#4ac750		9		
+Hemicellulose	#238B45		10		
+Lignin	#00441B		11		
+Other associated to plant-cell walls	navyblue		12		
+Auxiliary activity associated to plant-cell walls	lightblue		13		
+Cellulose/Chitin	#BF812D		14		
+Cellulose/Glucans	#8C510A		15		
+Starch	black		16		
+Associated to storage: Starch, Glycogen, Trehalose	black		17		
+Starch/Glycogen	black		17		

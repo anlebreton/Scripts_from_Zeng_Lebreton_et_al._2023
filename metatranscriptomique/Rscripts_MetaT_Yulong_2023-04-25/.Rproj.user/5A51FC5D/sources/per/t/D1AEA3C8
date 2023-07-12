@@ -1,0 +1,28 @@
+{
+    "id": "D1AEA3C8",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1688658287918.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "id": "231bc55c78844fdf90089d74f14b4f84",
+        "name": "mycolorLabel",
+        "title": "mycolorLabel",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 0,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1688658287918,
+    "read_only": false,
+    "read_only_alternatives": []
+}
