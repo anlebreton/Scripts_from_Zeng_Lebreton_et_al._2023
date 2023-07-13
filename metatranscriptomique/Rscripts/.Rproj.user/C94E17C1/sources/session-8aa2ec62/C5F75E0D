@@ -1,9 +1,9 @@
 {
     "id": "C5F75E0D",
-    "path": "/Volumes/Hungry/Yulong/metatranscriptomique_2023-04-25/Rscripts_MetaT_Yulong_2023-04-25/main.R",
+    "path": "~/Documents/scripts/Yulong/metatranscriptomique/Rscripts/main.R",
     "project_path": "main.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "1752141046",
     "contents": "",
     "dirty": false,
     "created": 1683493331882.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "1492,21",
-        "scrollLine": "1491"
+        "cursorPosition": "1143,0",
+        "scrollLine": "1131"
     },
     "folds": "",
-    "lastKnownWriteTime": 1688999575,
+    "lastKnownWriteTime": 1689254240,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1688999576465,
+    "last_content_update": 1689254240319,
     "read_only": false,
     "read_only_alternatives": []
 }

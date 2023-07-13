@@ -1,8 +1,12 @@
 library("readr")
 library("plyr");library("dplyr");library("ggplot2");library("tidyr");library("tidyverse")
-library("RColorBrewer");library("ggpubr");library("vegan")
+library("RColorBrewer");library("ggpubr");library("vegan"); library(multcompView)
+library(pheatmap)
+
+source("fonction.R")
 
 
+#import and fix metadata info
 treatment_metadata <- as.data.frame(read_delim("../0_metadata/metadata_all.txt", "\t", escape_double = FALSE, trim_ws = TRUE))
 treatment_metadata$layer_tree <- paste( treatment_metadata$layer,treatment_metadata$tree_species, sep="_")
 treatment_metadata$Layer <- treatment_metadata$layer
@@ -10,12 +14,12 @@ treatment_metadata <- treatment_metadata %>% mutate(layer=case_when(layer != "OS
 treatment_metadata <- treatment_metadata %>% mutate(layer=case_when(layer != "OM" ~ layer, TRUE ~ "OM: 5 - 25cm"))
 treatment_metadata$layer <- factor(treatment_metadata$layer, levels=c("OS: 0 - 5cm","OM: 5 - 25cm" ))
 
-
-Fungi_TPM <- read_delim("../1_data/ALL_SITES_Fungi_TPM.txt", "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE) %>%
+# import data remove badly formatted species, remove some metadata which are not processed later 
+Fungi_TPM <- read_delim("/Volumes/Hungry/Yulong/metatranscriptomique_2023-04-25/1_data/ALL_SITES_Fungi_TPM.txt", "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE) %>%
   filter(tax_kingdom %in% "Fungi", PD_Name %notin% c("Batde5","Crypa2","Pospl1")) %>% 
   select(cols=-c("MEROPS_coverage", "MEROPS_evalue","MEROPS_score" )) 
   
-  
+# fix species names according to expert identification
 Fungi_TPM <-  Fungi_TPM %>% mutate(species= paste(PD_Genus,"aff.",PD_Species,sep=" "))
 Fungi_TPM<-  Fungi_TPM %>% mutate(species= case_when(species!="Amanita aff. cecilae" ~ species, TRUE ~  "Amanita aff. griseofolia")) %>%
                             mutate(species= case_when(species!="Tuber aff. borchii" ~ species, TRUE ~  "ATuber zhongdianense")) %>%
@@ -23,7 +27,7 @@ Fungi_TPM<-  Fungi_TPM %>% mutate(species= case_when(species!="Amanita aff. ceci
   
 
 
-
+# group some lifestyles together 
 Fungi_TPM <- Fungi_TPM %>%  mutate(LifeStyle = case_when(LifeStyle %notin% c("dung_saprotroph") ~ LifeStyle, TRUE ~ "soil_saprotroph")) %>%
                             mutate(LifeStyle = case_when(LifeStyle %notin% c("nectar/tap_saprotroph","unspecified_saprotroph","pollen_saprotroph") ~ 
                                                            LifeStyle, TRUE ~ "other_saprotroph")) %>%
@@ -33,36 +37,11 @@ Fungi_TPM <- Fungi_TPM %>%  mutate(LifeStyle = case_when(LifeStyle %notin% c("du
                                                                         "ectomycorrhizal", "arbuscular_mycorrhizal",
                                                                         "unassigned") ~ LifeStyle, TRUE ~ "others"))
 
+#########################
 
-
-Fungi_ratio <- Fungi_TPM %>%
-  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
-  group_by(PD_Species, PD_Genus, PD_Family, PD_Order, PD_Class, PD_Phylum,LifeStyle) %>% summarise_if(is.numeric, sum) %>% 
-  pivot_longer(cols=-c(PD_Species, PD_Genus, PD_Family, PD_Order, PD_Class, PD_Phylum,LifeStyle), names_to="samples", values_to="tpm_counts") %>%
-  left_join(treatment_metadata) %>%
-  group_by(PD_Species, PD_Genus, PD_Family, PD_Order, PD_Class, PD_Phylum,LifeStyle, layer_tree) %>% summarise(tpm_sum=sum(tpm_counts)) %>%
-  pivot_wider(names_from = layer_tree, values_from = tpm_sum, values_fill = 0)
-
-Fungi_ratio <- Fungi_TPM %>%
-  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>%
-  filter(PD_Species %in% c("borchii","undulatus","glaucopus","triplex",
-                           "muscaria","haematopus","badius","pura","granulatus","saniosus", "sp",
-                           "camargensis"), PD_Genus %in% c("Tuber","Basidioascus","Phlegmacium",
-                                                           "Geastrum","Amanita","Mycena","Xerocomus",
-                                                           "Umbelopsis","Elaphomyces","Cortinarius",
-                                                           "Linnemannia")) %>%
-  group_by(contig,PD_Species, PD_Genus) %>% summarise_if(is.numeric, sum) %>%
-  pivot_longer(cols=-c(contig,PD_Species, PD_Genus), names_to="samples", values_to="tpm_counts") %>%
-  left_join(treatment_metadata) %>%
-  group_by(PD_Species, PD_Genus,contig, layer_tree) %>% summarise(tpm_sum=sum(tpm_counts))
-
-Fungi_ratio <- Fungi_TPM %>%
-  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>%
-  filter(contig %in% c("k141_503747","k141_3748920","k141_2562615","k141_3073207","k141_3703555",
-                       "k141_1319161","k141_326632","k141_7646129", "k141_56981", "k141_7162408",
-                       "k141_5541758","k141_8777435"))
-
-#write.table(Fungi_ratio,file="../taxonomy_lisadd.tsv", sep="\t", row.names = F)
+##-------------------------------
+## ------ Lifestyle -------------
+##-------------------------------
 
 Fungi_ratio <- Fungi_TPM %>%
   dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
@@ -76,15 +55,10 @@ tmp <- Fungi_ratio %>% ungroup %>% group_by(samples) %>% mutate(tmp_perc=(tpm_co
   group_by(LifeStyle, samples) %>% summarise(tpm_group=sum(tmp_perc)) %>% group_by(LifeStyle) %>%
   summarise(max=max(tpm_group), mean=mean(tpm_group), min=min(tpm_group)) 
 
-top10Eco <- Fungi_TPM %>%
-  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
-  group_by(LifeStyle) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(LifeStyle), names_to="samples", values_to="tpm_counts")%>%
-  group_by(LifeStyle) %>% summarise(max=max(tpm_counts), mean=mean(tpm_counts), median=median(tpm_counts)) %>% 
-  slice_max(.,order_by = mean,n=10)
+# overall content
+tmp
 
 
-
-###### Lifestyle #######
 mycolors <- GetMyColor(Fungi_TPM$LifeStyle)
 Fungi_TPM$LifeStyle <- factor(Fungi_TPM$LifeStyle, levels=names(mycolors)) 
 
@@ -106,7 +80,6 @@ Fungi_ratio <- Fungi_ratio %>%
               group_by(LifeStyle, samples, tree_species, Layer, layer, layer_tree) %>% summarise(tpm_counts=sum(tpm_counts)) %>% 
               mutate(tree_association_ecology=paste(Layer, tree_species,  LifeStyle)) # create an unique tag for the combinaison tree -layer-ecology
   
-library(multcompView)
 #anova
 model <- aov(tpm_counts~tree_association_ecology, data=Fungi_ratio)
 summary(model)
@@ -140,10 +113,6 @@ ggplot(data=Fungi_ratio, aes(x=tree_association_ecology, y=tpm_counts, colour=Li
   #theme(legend.position="bottom")+
   theme(axis.text.x=element_text(angle = 55,hjust=1, colour = mycolorLabel), axis.title.x=element_blank())
 #8*12
-
-
-
-
 
 
 ### plot main graph - Fig.4a
@@ -189,6 +158,7 @@ Fungi_ratio <-Fungi_ratio %>%
   group_by(KOG_group, LifeStyle, samples) %>% summarise(tpm=sum(tpm_counts))
 colnames(Fungi_ratio)[colnames(Fungi_ratio) == "tpm"] <- "tpm_counts"
 
+# check the abundance assigned to each KOG group and lifestyle
 dfstatTPM <- get_dfstatTPM_LifeStyle(Fungi_ratio, WhereToTest)
 dfstatPERC <- get_dfstatPERC_LifeStyle(Fungi_ratio, WhereToTest)
 
@@ -200,10 +170,10 @@ WhereToTest <- "KOG_group"
 #t.res <- t.test_paired_Layer(Fungi_ratio, GroupToTest, WhereToTest)
 # test <- Fungi_ratio %>%
 #        group_by(KOG_group, LifeStyle, samples) %>% summarise(tpm=sum(tpm_counts)) %>% pivot_wider(names_from = samples, values_from = tpm)
-###### plot 
+
+#----------- plot --------------
 dfTPM <- Fungi_ratio %>%   left_join(treatment_metadata) %>% 
   group_by(KOG_group, LifeStyle,layer,tree_species, layer_tree) %>% summarise(mean_tpm=mean(tpm_counts))
-#dfTPM <- dfTPM %>% left_join(sumlayertree) %>% mutate(perc=(tpm/sommeLayerTree)*100)
 
 mycolors <- GetMyColor(dfTPM$LifeStyle)
 dfTPM$LifeStyle <- factor(dfTPM$LifeStyle, levels=names(mycolors)) 
@@ -231,10 +201,12 @@ Fungi_TPM_filtered_Annot$KOG_class[Fungi_TPM_filtered_Annot$KOG_class == "Posttr
 Fungi_ratio <- get.Fungi_ratio(Fungi_TPM_filtered_Annot, WhereToTest,SelectMetadataValue="all", columnMetadataValue="all")
 # Fungi_ratio <- get.Fungi_ratio(Fungi_TPM, WhereToTest,SelectMetadataValue="Quercus", columnMetadataValue="tree_species")
 
+# check the abundance assigned to each KOG class and lifestyle
 dfstatTPM <- get_dfstatTPM(Fungi_ratio, WhereToTest)
 dfstatPERC <- get_dfstatPERC(Fungi_ratio, WhereToTest)
 dfstatPERC <- merge(dfstatPERC,KOG_meta)
 dfstatPERC <- dfstatPERC %>% select(`KOG class`, max, min, mean, median)
+
 #############
 ###### Total by Lifestyle KOG_class ######
 
@@ -251,10 +223,9 @@ colnames(Fungi_ratio)[colnames(Fungi_ratio) == "tpm"] <- "tpm_counts"
 dfstatTPM <- get_dfstatTPM_LifeStyle(Fungi_ratio, WhereToTest)
 dfstatPERC <- get_dfstatPERC_LifeStyle(Fungi_ratio, WhereToTest)
 
-###### plot ###
+##-------- plot FigS6 --------
 dfTPM <- Fungi_ratio %>%   left_join(treatment_metadata) %>%
   group_by(KOG_class, LifeStyle,layer,tree_species, layer_tree) %>% summarise(mean_tpm=mean(tpm_counts)) %>% join(KOG_meta)
-#dfTPM <- dfTPM %>% left_join(sumlayertree) %>% mutate(perc=(tpm/sommeLayerTree)*100)
 
 mycolors <- GetMyColor(dfTPM$LifeStyle)
 dfTPM$LifeStyle <- factor(dfTPM$LifeStyle, levels=names(mycolors)) 
@@ -263,11 +234,8 @@ ggplot(data=dfTPM, aes(x=Letter_code, y=mean_tpm, fill=LifeStyle , alpha=`KOG cl
   geom_col() + scale_fill_manual(values=mycolors)+
   scale_alpha_manual(values=rep(1,times=23)) +
   theme_bw()+
-  #theme(legend.position="bottom")+
-  #ylim(0, 2000000)+
-  facet_wrap(. ~ layer*tree_species, scales = "free_x") #+ theme(axis.text.x=element_text(angle = 55,hjust=1)) 
+  facet_wrap(. ~ layer*tree_species, scales = "free_x") 
 #size 7*18
-#### transform to heatmap ?
 
 ###################
 mycolors <- GetMyColor(Fungi_TPM_filtered_Annot$LifeStyle)
@@ -275,34 +243,32 @@ Fungi_TPM_filtered_Annot$LifeStyle <- factor(Fungi_TPM_filtered_Annot$LifeStyle,
 
 GroupToTest <- unique(Fungi_TPM_filtered_Annot$KOG_class) 
 catToTest <- "Translation, ribosomal structure and biogenesis"  
+
+## create one barplot per KOG class, color with lifestyle, generate a pdf per figure 
 for(catToTest in GroupToTest){
-Fungi_ratio <- Fungi_TPM_filtered_Annot %>%
-  dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>%
-  filter(KOG_class == catToTest) %>%
-  group_by(LifeStyle) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(LifeStyle), names_to="samples", values_to="tpm_counts") %>%
-  left_join(treatment_metadata) %>%
-  #group_by(LifeStyle, layer, layer_tree) %>% summarise(tpm_median=median(tpm_counts))
-  group_by(LifeStyle, layer, layer_tree) %>% summarise(tpm_mean=mean(tpm_counts))
-  
-  
-nom <- paste(catToTest,".pdf", sep="")
-nom <- gsub("/", "-", nom)
-print(nom)
-
-p <- #ggplot(data=Fungi_ratio, aes(x=layer_tree, y=tpm_median, fill=LifeStyle)) +
-  ggplot(data=Fungi_ratio, aes(x=layer_tree, y=tpm_mean, fill=LifeStyle)) +
-  geom_col() + #facet_wrap(. ~ layer*tree_species, scales = "free_x") +
-  facet_wrap(. ~ layer, scales = "free_x") +
-  scale_fill_manual(values=mycolors)+
-  #c("#999999",rev(c("#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7","springgreen4","mediumorchid4","cadetblue","lightpink","khaki","turquoise1")))) +
-  theme(axis.text.x=element_text(angle = 55,hjust=1), axis.title.x=element_blank())+
-  ggtitle(catToTest)
-
-pdf(file=nom,width=5, height=5)
-print(p)
-dev.off()
-#5*5
-
+    Fungi_ratio <- Fungi_TPM_filtered_Annot %>%
+      dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>%
+      filter(KOG_class == catToTest) %>%
+      group_by(LifeStyle) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(LifeStyle), names_to="samples", values_to="tpm_counts") %>%
+      left_join(treatment_metadata) %>%
+      group_by(LifeStyle, layer, layer_tree) %>% summarise(tpm_mean=mean(tpm_counts))
+      
+    nom <- paste(catToTest,".pdf", sep="")
+    nom <- gsub("/", "-", nom)
+    print(nom)
+    
+    p <- 
+      ggplot(data=Fungi_ratio, aes(x=layer_tree, y=tpm_mean, fill=LifeStyle)) +
+      geom_col() + 
+      facet_wrap(. ~ layer, scales = "free_x") +
+      scale_fill_manual(values=mycolors)+
+      theme(axis.text.x=element_text(angle = 55,hjust=1), axis.title.x=element_blank())+
+      ggtitle(catToTest)
+    
+    pdf(file=nom,width=5, height=5)
+    print(p)
+    dev.off()
+    #5*5
 }
 
 #########################
@@ -377,7 +343,7 @@ Fungi_ratio <- Fungi_TPM %>%
   filter(LifeStyle %in% c("SAP","EM") ) %>%
   filter(UA_class == kog ) %>% 
   group_by(UA_class,LifeStyle) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(UA_class,LifeStyle), names_to="samples", values_to="tpm_counts") %>%
-  left_join(treatment_metadata)  # %>% left_join(sumlayertree) %>% mutate(perc=(tpm_counts/sommeLayerTree)*100)
+  left_join(treatment_metadata) 
 
 mycolors <- GetMyColor(Fungi_ratio$LifeStyle)
 Fungi_ratio$LifeStyle <- factor(Fungi_ratio$LifeStyle, levels=names(mycolors)) 
@@ -396,87 +362,13 @@ ggplot(data = Fungi_ratio, aes(x=LifeStyle, y=tpm_counts, fill=tree_species))+
 
 #5*4
 
-# 
-# 
-# 
-# #######################
-# annotSample <- treatment_metadata %>% select(layer, cluster_number, tree_species)
-# rownames(annotSample) <- treatment_metadata$samples
-# myColorAnnot <- list("tree_species"= GetMyColor(annotSample$tree_species),
-#                      "cluster_number"=GetMyColor(annotSample$cluster_number),
-#                      "layer"=GetMyColor(annotSample$layer))
-# 
-# 
-# ecology="all"
-# kog="Nitrogen-related transporters"
-# 
-# Fungi_ratio <- Fungi_TPM %>% dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
-#   filter(UA_class == kog ) %>% 
-#   #filter(KOG_class %in% "Coenzyme transport and metabolism" ) %>%
-#   #filter(grepl(ecology ,LifeStyle) ) %>%
-#   #mutate(species= paste(PD_Genus,PD_Species,sep="_")) %>%
-#   mutate(species= PD_Order) %>%
-#   #filter(!(tax_sciname %in% c("56484", "5306", "2461416", "1898205", "*"))) %>%
-#   #mutate(tax_sciname = str_trunc(tax_sciname, 30, "right")) %>%
-#   group_by(species) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(species), names_to="samples", values_to="tpm") %>%
-#   left_join(treatment_metadata) %>% group_by(species, cluster_number) %>% summarise(tmp_counts=sum(tpm), .groups = "keep") %>%
-#   pivot_wider(names_from  = cluster_number, values_from = "tmp_counts")
-# 
-# 
-# sp_tmp <- Fungi_ratio %>% pivot_longer(cols=-c(species), names_to="cluster_number", values_to="tpm_counts") %>% 
-#   group_by(species) %>% summarise_if(is.numeric, sum) %>%
-#   filter(tpm_counts < 200)
-# sp_preval <- Fungi_ratio %>% pivot_longer(cols=-c(species), names_to="cluster_number", values_to="tpm_counts") %>% 
-#   mutate(nb=0)%>%
-#   mutate(nb=case_when(tpm_counts < 1 ~  nb, TRUE ~ 1)) %>%
-#   group_by(species) %>% summarise(preval=sum(nb)) %>%
-#   filter(preval < 4)
-# 
-# 
-# Fungi_ratio <- Fungi_ratio %>% filter(species %notin% sp_tmp$species ) %>% 
-#   filter(species %notin% sp_preval$species ) %>%
-#   filter(!is.na(species))
-# rownames(Fungi_ratio) <- Fungi_ratio$species
-# 
-# 
-# m <- Fungi_ratio %>% ungroup() %>% select(-species)
-# rownames(m) <- Fungi_ratio$species
-# 
-# nom <- paste(ecology, "__", kog,".pdf", sep="")
-# nom <- gsub("/", "-", nom)
-# 
-# nom2 <- paste(ecology,":", kog)
-# library(pheatmap)
-# 
-# p <- pheatmap(log(m+1),
-#               #color= c(rev(colorRampPalette(brewer.pal(9, "Blues"))(100)), colorRampPalette(brewer.pal(9, "YlOrRd"))(100), "black"),
-#               main=nom2,
-#               cellwidth=2,
-#               cellheight = 4,
-#               fontsize_col=2,
-#               fontsize_row=4,
-#               annotation_col = annotSample,
-#               #annotation_row = annotCAZymes,
-#               annotation_colors = myColorAnnot,
-#               color= c("white",(colorRampPalette(brewer.pal(9, "OrRd"))(100)),"black"))
-# 
-# p 
-# #h <- 4 + length(Fungi_ratio$species)/40
-# h <- 4 + length(Fungi_ratio$species)/20
-
-
-
 #########################
 
 ##-------------------------------
 ## -------- KOG class  Heatmaps -----------
 ##-------------------------------
-library(pheatmap)
 treatment_metadata$Layer_cluster <- paste(treatment_metadata$Layer,treatment_metadata$cluster_number, sep = " ")
 
-# annotSample <- treatment_metadata %>% select(layer, tree_species,layer_tree) %>% unique() 
-# rownames(annotSample) <- annotSample$layer_tree
-# annotSample$layer_tree <- NULL
 
 annotSample <- treatment_metadata %>% select(layer, tree_species,Layer_cluster) %>% unique() 
 rownames(annotSample) <- annotSample$Layer_cluster
@@ -487,23 +379,17 @@ Fungi_TPM_filtered_Annot <-Split_Annot_In_Multiple_Rows(Fungi_TPM, WhereToTest)
 Fungi_TPM_filtered_Annot <- Fungi_TPM_filtered_Annot %>% filter(KOG_group %in% c("CELLULAR PROCESSES AND SIGNALING", "INFORMATION STORAGE AND PROCESSING", "METABOLISM"))
 Fungi_TPM_filtered_Annot$KOG_class[Fungi_TPM_filtered_Annot$KOG_class == "Posttranslational modification, protein turnover, chaperones"] <- "Post-translational modification, protein turnover and chaperones"
 
-# 
-# myColorAnnot <- list("tree_species"= GetMyColor(annotSample$tree_species),
-#                      "layer"=GetMyColor(annotSample$layer))
-
 annotSpecies <- Fungi_TPM_filtered_Annot %>% mutate(LifeStyle=case_when(species!="Unclassified aff. sp" ~ LifeStyle, TRUE ~ "unassigned") ) %>%
   select(species, LifeStyle) %>% unique() 
 
-#mycolors_tmp <- GetMyColor(annotSpecies$LifeStyle)
-#library(scales)
-#show_col(mycolors_tmp)
 
 ecology=""
 kog="Lipid transport and metabolism"
 GroupToTest <- unique(Fungi_TPM_filtered_Annot$KOG_class)
 
 
-
+### create one heatmap per KOG class
+###
 for(kog in GroupToTest){
   
   Fungi_ratio <- Fungi_TPM_filtered_Annot %>% dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
@@ -623,15 +509,11 @@ for(kog in GroupToTest){
 CAZymes_metadata <- read.csv("../0_metadata/metadata_CAZymes_v2.txt", sep="\t")
 treatment_metadata$Layer_cluster <- paste(treatment_metadata$Layer,treatment_metadata$cluster_number, sep = " ")
 
-# rm AA7, CE1,CE3 et CE14
 Fungi_TPM_CAZymes <- Fungi_TPM %>%
   dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
   filter(!is.na(CAZy_family))
 
-Fungi_TPM_filtered_Annot <- Fungi_TPM_CAZymes %>% separate_rows( "CAZy_family",sep = "-") %>%
-                                                  unique() %>%
-                                                  filter(CAZy_family %notin%  c("AA7", "CE1","CE3", "CE14")) %>%
-                                                  filter(CAZy_family %notin% c("CBM13", "AA6","CBM5","CE4"))
+Fungi_TPM_filtered_Annot <- Fungi_TPM_CAZymes %>% separate_rows( "CAZy_family",sep = "-")
 
 
 ##------------------------------
@@ -1005,7 +887,6 @@ ggplot(data=Fungi_ratio2, aes(x=layer_tree, y=tpm, fill=CAZy_family)) +
 #####-------------
 
 Fungi_ratio <- Fungi_TPM_filtered_Annot %>%
-  filter(CAZy_family %notin% c("CBM13", "AA6","CBM5","CE4")) %>% 
   group_by(CAZy_family) %>% summarise_if(is.numeric, sum) %>% pivot_longer(cols=-c(CAZy_family), names_to="samples", values_to="tpm_counts") %>%
   left_join(treatment_metadata) %>%
   group_by(CAZy_family, layer_tree) %>% summarise(tpm_median=median(tpm_counts), .groups = "keep") #%>%
@@ -1260,7 +1141,6 @@ Fungi_TPM_CAZymes <- Fungi_TPM %>%
 
 Fungi_TPM_filtered_Annot <- Fungi_TPM_CAZymes %>% separate_rows( "CAZy_family",sep = "-") %>%
   unique() %>%
-  filter(CAZy_family %notin%  c("AA7", "CE1","CE3", "CE14","CBM13", "AA6","CBM5","CE4")) 
 rownames(Fungi_TPM_filtered_Annot) <-paste( Fungi_TPM_filtered_Annot$species, rownames(Fungi_TPM_filtered_Annot), sep="_") ## just to check if it's unique
 Fungi_TPM_filtered_Annot$ID <- paste( Fungi_TPM_filtered_Annot$species, rownames(Fungi_TPM_filtered_Annot), sep="_") 
 
