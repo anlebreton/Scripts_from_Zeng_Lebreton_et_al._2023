@@ -2,11 +2,11 @@
 library(phyloseq)
 library(ggplot2)
 library(ggpubr)
-## Alternative to source all extra function from a github repo
+library(plotly)
+
+##  source all extra function from a github repo
  source("https://raw.githubusercontent.com/mahendra-mariadassou/phyloseq-extended/master/load-extra-functions.R")
 
-
-setwd("/Volumes/Hungry/Yulong/metabarcoding/Yulong_R_scripts")
 ## Setting variables
 ## The Phyloseq object (format rdata)
 phyloseq <- load("../1_data/Yulong_ITS2.rdata")
@@ -26,16 +26,13 @@ varExp <-  "Tree_species"
 ## Create input and parameters dataframe
 params <- data.frame( "phyloseq" = phyloseq, "varExp" = varExp, "methods" = methods)
 
-## Load data
-## the phyloseq object
-#load(params$phyloseq) 
-
 ## store methods in list
 methods <- as.list(strsplit(params$methods, ",")[[1]])
 
 ## Order samples according to grouping variable
 sampleOrder <- levels(reorder(sample_names(data), as.numeric(get_variable(data, params$varExp)))) 
-# 
+
+# Heatmap plot of the beta distance 
 for (method in methods){
   dist.a <- distance(data, method = method)
   a <- as.matrix(dist.a)
@@ -46,17 +43,9 @@ for (method in methods){
 }
 
 
-
-## Import packages
-# library(phyloseq)
- library(plotly)
-# source(file.path(params$libdir, "graphical_methods.R"))
-## Alternative to source all extra function from a github repo
-# source("https://raw.githubusercontent.com/mahendra-mariadassou/phyloseq-extended/master/load-extra-functions.R")
-
-## Setting variables
-## The Phyloseq object (format rdata)
-# phyloseq <- ""
+#-------------------------------------------------------------
+#____________ TREE association ____________________________
+#-------------------------------------------------------------
 
 ## The beta diversity distance matrix file
  distance <- "cc.tsv"
@@ -71,10 +60,6 @@ for (method in methods){
 ## Create input and parameters dataframe
  params <- data.frame( "phyloseq" = phyloseq, "distance" = distance, "method" = method, "varExp" = varExp)
 
-## Load data
-## the phyloseq object
-#load(params$phyloseq)
-
 ## the distance matrix file
 A    <- read.table(file=params$distance, row.names=1)
 dist <- as.dist(A)
@@ -87,12 +72,10 @@ var  <- get_variable(data, params$varExp)
 
 data@sam_data$Tree_species <- factor(data@sam_data$Tree_species, levels=c("Abies","Picea","Quercus"))
 
-#myColor=c("Abies"="#ffb3b3","Picea"="#c6ecd9","Quercus"="#66ccff")
-myColor=c("Abies"="red","Picea"="forestGreen","Quercus"="blue")
 myColor=c("Abies"="#d64933","Picea"="#3fb52f","Quercus"="#5a92ed")
 
 
-## plot(p1)
+## NMDS 
 p1t <- plot_ordination(data, ord, color = params$varExp) + 
   geom_text(aes(label = SampleID), alpha = 0) + ## add invisible labels
   theme_bw() + ggtitle(paste(params$method,"Jaccard")) +
@@ -124,8 +107,6 @@ p2t <- plot_ordination(data, ord, color = params$varExp) +
         legend.position = "none"
         )  +
   stat_ellipse( type = "t", linetype = 1, level = 0.95) 
-  #stat_ellipse(geom = "polygon", alpha = 1/2, aes(fill = params$varExp))
-
 
 ggplotly(p2t, tooltip = c("colour", "label"))
   
@@ -177,10 +158,11 @@ ggarrange(p1t, p2t, p3t, p4t, #+ rremove("x.text"),
 # [5,17]
 #size= [6,8] PDF
 #size = [800 - 575]
-#########################---------------------
-########################----------------------
 
 
+#-------------------------------------------------------------
+#__________________ soil Layer    ____________________________
+#-------------------------------------------------------------
 
 ## The beta diversity distance matrix file
 distance <- "cc.tsv"
@@ -300,9 +282,9 @@ ggarrange(p1l, p2l, p3l, p4l, #+ rremove("x.text"),
 
 
 
-#########################---------------------
-########################----------------------
-
+#-------------------------------------------------------------
+#__________________ Season   ____________________________
+#-------------------------------------------------------------
 
 
 ## The beta diversity distance matrix file
@@ -423,7 +405,9 @@ ggarrange(p1s, p2s, p3s, p4s, #+ rremove("x.text"),
 
 
 
-#################
+#-------------------------------------------------------------
+#__________________ combined plot   _________________________
+#-------------------------------------------------------------
 
 ggarrange(p2t, p2s, p2l, #+ rremove("x.text"), 
           labels = c("Tree species", "Season", "Layer"),

@@ -1,16 +1,13 @@
-# library(ecole)
-# install.packages("remotes")
-# remotes::install_github("phytomosaic/ecole")
-#https://rstudio-pubs-static.s3.amazonaws.com/548738_f2de141dddb146879c535583eb8ba79c.html
 library(phyloseq)
 library(ggplot2)
 library(tidyr)
 library(dplyr)
 library(ggsignif)
+library(vegan)
 
 
 GetMyColor <- function(colDF){
-  mycolorsCAZymes <- read.csv("../../mycolorFile.txt",sep="\t")
+  mycolorsCAZymes <- read.csv("../../../mycolorFile.txt",sep="\t")
   mycolors <- mycolorsCAZymes %>% filter(Name %in% colDF)
   mycolors <- mycolors %>% arrange(myLevel)
   mycolor <- mycolors$color
@@ -19,8 +16,7 @@ GetMyColor <- function(colDF){
   return(mycolor)
 }
 
-meta <- read.csv(file="../0_Metadata/Yulong_sampling_bacteria_metadata.txt","sep"="\t")
-meta <- read.csv(file="../0_Metadata/Yulong_sampling_ITS2_metadata.txt","sep"="\t")
+meta <- read.csv(file="../../0_Metadata/Yulong_sampling_ITS2_metadata.txt","sep"="\t")
 
 names(meta)[names(meta) == 'X'] <- 'Sample'
 meta$sample <- gsub("-", ".", meta$Sample)
@@ -29,7 +25,6 @@ meta$Tree_layer <-  paste(meta$Tree_species,meta$Layer,sep="_")
 
 ## Setting variables
 ## The Phyloseq object (format rdata)
-phylose <- load("../1_data/Yulong_bacteria.rdata")
 phylose <- load("../1_data/Yulong_ITS2.rdata")
 
 ## The experiment variable that you want to analyse
@@ -42,9 +37,6 @@ measures <- "InvSimpson,Observed,Shannon,"
 ## Create input and parameters dataframe
 params <- data.frame( "phyloseq" = phylose, "measures" = measures, "varExp" = varExp)
 
-## Load data
-#load(params$phyloseq)
-
 ## Convert measures to list
 measures <- as.list(strsplit(params$measures, ",")[[1]])
 
@@ -55,31 +47,21 @@ alpha.diversity$sample <- row.names(alpha.diversity)
 
 df <- gather(alpha.diversity, "indice", "value", -"sample")
 df <- merge(df, meta)
+#fix names
 df <- df %>% mutate(Layer=case_when(Layer != "OS" ~ Layer, TRUE ~ "OS: 0 - 5cm")) 
 df <- df %>% mutate(Layer=case_when(Layer != "OM" ~ Layer, TRUE ~ "OM: 5 - 25cm"))
 df$Layer <- factor(df$Layer, levels=c("OS: 0 - 5cm","OM: 5 - 25cm" ))
 
+#fix factor level
 df$Tree_species <- factor(df$Tree_species, levels=c("Abies","Picea","Quercus"))
 df$indice <- factor(df$indice, levels=c("Observed","Shannon","InvSimpson"))
-#df$Layer <- factor(df$Layer, levels=c("OS","OM"))
 df$Season <- factor(df$Season, levels=c("2019_wet", "2020_dry", "2020_wet"))
 
 
 DF <- df %>% filter(indice == "Observed")
 DF <- DF %>% rename("Corg/N"=ratioCorg_N)
 
-# typical usage:
-# data(oakwoods, package='ecole')
-# spe <- oakwoods$spe
-# env <- oakwoods$env
-# D   <- vegan::vegdist(spe, 'bray')
-# table(env$thiltype)
-# permanova_pairwise(x = D, grp = env$thiltype)
-# # warning when any factor level contains singletons:
-# table(env$aspclass)
-# permanova_pairwise(x = D, grp = env$aspclass)
-# 
-# DF$ratio <- DF$Org/DF$N
+# Impact of the soil caracteristic ?
 summary(lm(value ~ Org, DF))
 summary(lm(value ~ N, DF))
 summary(lm(value ~ log(`Corg/N`), DF))
@@ -90,22 +72,20 @@ summary(lm(value ~ P, DF))
 summary(lm(value ~ DBH, DF))
 
 
-#t <- DF %>% select()
 tmp <- !is.na(DF)
+# correlation among variables ?
 cor(tmp[, c('pH','N','CEC','P','Ca','Corg', "Corg/N" , "DBH")])
 
 myColor <- GetMyColor(DF$Tree_species)
-#tmp <- DF %>% filter(Layer == "OS: 0 - 5cm") %>% filter(Tree_species != "Quercus")
 
+# Plots 
 p1 <- ggplot(DF, aes(x = Org , y = value, colour = Tree_species)) +
   geom_point(size = 1) +
   scale_colour_manual(values=myColor)+
   geom_smooth(method = "lm", colour = "black", fill = "grey85", linewidth=0.5) +
-  #scale_colour_viridis_d(option = "magma", begin = 0.2, end = 0.8) +
   xlab(bquote("SOM" ~ (g/kg^-1))) + 
   labs(y=NULL) + 
-  #ylab("fungal alpha diversity") +
-  #ylim(1.1,3) +
+
   theme_bw()
 p1
 
@@ -211,16 +191,8 @@ ggarrange(p1, p2, p3, p4,p5,p6, p7,p8, #+ rremove("x.text"),
 
 
 
-
-
-adonis(formula = value ~  Tree_species * Season*Layer , data = DF, 
+adonis2(formula = value ~  Tree_species * Season*Layer , data = DF, 
        permutations = 9999)
-
-
-
-#+pH + N + P + Org+ CEC+ Ca
-#Season, Sample_tag, Tree_number, Orientation, Layer, Tree_species, Cluster, pH, N, P, Org, CEC, Ca, SampleID
-
 
 
 #############################################
@@ -238,7 +210,6 @@ meta$sample <- gsub("-", ".", meta$Sample)
 meta$Tree_layer <-  paste(meta$Tree_species,meta$Layer,sep="_")
 
 phyloseq <- load("../1_data/Yulong_ITS2.rdata")
-#phyloseq <- load("../1_data/Yulong_bacteria.rdata")
 varExp <-  "Tree_species"
 methods <- "bray"
 

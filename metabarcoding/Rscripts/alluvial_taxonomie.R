@@ -1,6 +1,7 @@
 #library("readr")
 library("plyr");library("dplyr");library("ggplot2");library("tidyr");library("tidyverse")
 library("RColorBrewer");library("ggpubr");library("vegan")
+library(ggalluvial)
 
 
 GetMyColor2 <- function(colDF){
@@ -22,33 +23,29 @@ GetMyColor <- function(colDF){
   return(mycolor)
 }
 
-abundance <- read.csv("../1_data/no_normalisation_ITS2_abundance_addCols.tsv", sep="\t" )
-#abundance <- read.csv("../1_data/Yulong_ITS2_normalised_abundance_addCols.tsv", sep="\t" )
+# FROGS BIOM to TSV results with the taxonomy (one column per level) added
+abundance <- read.csv("../1_data/Yulong_ITS2_normalised_abundance_addCols.tsv", sep="\t" )
 abundance$ID <- paste(abundance$observation_name, abundance$Species, sep="_")
-#abundance$ID <- paste(abundance$observation_name, abundance$Order, sep="_")
 
+#fix some names
 abundance$ID <- str_replace_all(abundance$ID , "-", ".")
 abundance$ID <- str_replace_all(abundance$ID , " ", ".")
 abundance$ID <- str_replace_all(abundance$ID , "[(]", ".")
 abundance$ID <- str_replace_all(abundance$ID , "[)]", ".")
 
-
+#fix some names
 samples_metadata <- read.table("../0_Metadata/Yulong_sampling_ITS2_metadata.txt")
 samples_metadata$Sample <- rownames(samples_metadata)
 samples_metadata$Sample <- str_replace_all(samples_metadata$Sample , "-", ".")
 
-ecology <-read.csv(file="../../ecology_fungaltrait_genus.txt", sep = "\t")
+#obtained from the supplementary of the Fungal trait article
+ecology <-read.csv(file="../../0_Metadata/ecology_fungaltrait_genus.txt", sep = "\t")
+
+# selecting purpose, here all the sample names start by the amplicon tag
 amplicon="ITS2"
 
-df <-  abundance #%>% filter(observation_sum >50)
-#df <-  abundance %>% filter(observation_name %in% DE$observation_name)
-#df$ID <- paste(df$observation_name, df$Species, sep="_")
-#df$ID <- str_replace_all(df$ID , "-", ".")
-
-
-df2 <- df %>% select(c("ID", starts_with(amplicon))) #%>%
-#pivot_longer(cols=-c("ID"), names_to="samples", values_to="count") %>%
-#group_by("ID","samples") %>% summarise("counts"=sum(count)) 
+# simplify the full table
+df2 <- abundance %>% select(c("ID", starts_with(amplicon))) 
 
 tmp <- df2
 df2$ID <- NULL
@@ -57,9 +54,8 @@ rownames(df2) <- tmp$ID
 df2 <- as.data.frame(t(df2))
 df2$Sample <- rownames(df2)
 df2 <- df2 %>% left_join(samples_metadata )
-#df2$layer_tree <- paste( df2$layer,df2$tree_species, sep="_")
 
-#colnames(df)
+# here measures = OTU names
 measures <- df2 %>% select(starts_with("Cluster")) 
 measures <- unique(colnames(measures))
 
@@ -68,6 +64,10 @@ variables <- c("Layer", "Tree_species","Season")
 v1 <- c("Tree_species","Season")
 v2 <- c("Layer")
 
+
+# perform a Wilcoxon test to identify differences among Layer (2 categories) 
+# perform a Kruskal test to identify differences among Seasons and Tree associations
+# FDR corrections for both test
 DF <- data.frame()
 res_test <- data.frame(matrix(ncol = length(variables) , nrow = length(measures) ))
 colnames(res_test) <- variables
@@ -77,7 +77,6 @@ for (v in v1){
   for (m in measures){
     f <- paste(m," ~ ", v)
     kruskal_res <- kruskal.test(as.formula(f), data=df2 )
-    #kruskal_res<- kruskal.test(AA3 ~ tree_species, data=df2 )
     DF[m,v]<- kruskal_res$p.value
   }
   res_test[,v] <- p.adjust(DF[,v], method = "fdr")
@@ -90,13 +89,15 @@ for (v in v2){
     if(f=="Cluster  ~  Layer") next
     #print(f)
     wilcox.test <- wilcox.test(as.formula(f), data=df2 )
-    #kruskal_res<- kruskal.test(AA3 ~ tree_species, data=df2 )
     DF[m,v]<- wilcox.test$p.value
   }
   res_test[,v] <- p.adjust(DF[,v], method = "fdr")
 }
 
+#  cleanup
 rm(DF, m,v,v1,v2,f,kruskal_res,wilcox.test,df,tmp)
+
+# filter to remove OTU with no significant differences
 res_test$ID <- rownames(res_test)
 res_test_filtered <- res_test %>% filter(ID != "Cluster") %>%
   filter_at(vars(all_of(variables)), any_vars(. < 0.00001 ))
@@ -106,7 +107,8 @@ res_test_filtered <- res_test %>% filter(ID != "Cluster") %>%
 variablesDetails1 <- c("Quercus","Abies","Picea")
 variablesDetails2 <- c(unique(samples_metadata$Season))
 
-res_test_FC <- abundance %>% #filter(observation_sum >50) %>%
+# compute FC
+res_test_FC <- abundance %>% 
   select(c("ID", starts_with(amplicon))) %>%
   pivot_longer(cols=-c("ID"), names_to="Sample", values_to="count") %>% 
   filter(ID %in% res_test_filtered$ID) %>%
@@ -117,12 +119,8 @@ res_test_FC <- abundance %>% #filter(observation_sum >50) %>%
   summarise(max=max(median),min=min(median), highestFC=max/(min+1)) %>% 
   left_join(res_test_filtered)
 
-#df <- res_test_FC %>% filter(highestFC > 1.5)
 
-
-####### Tree_species ######
-
-res <- res_test_FC %>% filter(Tree_species < 10e-5) %>% filter(max > 18)
+# select top 20 
 res <- res_test_FC %>% filter(Tree_species < 10e-5) %>% arrange(desc(max)) %>%
   slice_head(n=20)
 
@@ -137,55 +135,34 @@ res2 <- abundance %>% filter(ID %in% res$ID) %>%
 tmp <- abundance %>% filter(ID %in% res$ID) %>% select("ID","Phylum","Order")
 #write.table(tmp, file="tmp.tsv", sep="\t", row.names = F)
 
-#install.packages("ggalluvial")
-library(ggalluvial)
-# 
-# Fungi_ratio <- Fungi_TPM %>%
-#   dplyr::select(-starts_with("NR_"),-starts_with("Myc"),-ID,-ctg_length, -sum_contig_count) %>% 
-#   mutate(PD_Order = case_when(PD_Order %in% topPhyla ~ PD_Order, TRUE ~ "Others")) %>%
-#   filter(PD_Order != "Others") %>%
-#   group_by(PD_Genus,PD_Family, PD_Order, PD_Phylum) %>% summarise_if(is.numeric, sum) %>% 
-#   pivot_longer(cols=-c(PD_Genus, PD_Family, PD_Order, PD_Phylum), names_to="samples", values_to="tpm_counts") %>%
-#   left_join(treatment_metadata)
-# 
-# Fungi_ratio2 <- Fungi_ratio %>% group_by(tree_species) %>% 
-#   mutate(perc_tpm=(tpm_counts/sum(tpm_counts))*100) %>%
-#   group_by(PD_Order, tree_species) %>% 
-#   summarise_if(is.numeric, sum) %>%
-#   select(PD_Order, tree_species,perc_tpm )
-
+# check format
 is_alluvia_form(as.data.frame(res2), axes = 1:2, silent = TRUE)
 
+#get colors
 myColorTree = GetMyColor(res2$Tree_species)
 myColorOrder = GetMyColor2(res2$Order)
 myColorPhylum =  GetMyColor2(res2$Phylum)
-#myColorID = GetMyColor2(res2$ID)
 
+# sort factor
 res2$Phylum <- factor(res2$Phylum, levels =names(myColorPhylum ))
 res2$Order <- factor(res2$Order, levels =names(myColorOrder) )
-#res2$ID <- factor(res2$ID, levels =names(myColorID) )
 
-
+# alluvial plot
 ggplot(as.data.frame(res2),
        aes(y = median, axis1=ID, axis2 = Tree_species)) +
   geom_alluvium(aes(fill = Tree_species), width = 1/12) +
   geom_stratum(width = 1/12, color = "grey") +
   scale_fill_manual(values = myColorTree) +
-  #scale_color_manual(values = myColorFull) +
   geom_text(
     aes(
       label = after_stat(stratum),
       hjust=1,
-      #hjust = ifelse(Condition == "Condition1", 1, 0),
-      #x = as.numeric(factor(Condition)) + .075 * ifelse(Condition == "Condition1", -1, 1),
       color = "grey"
     ),
     stat = "stratum", fontface = "bold", 
     size = 3
   )+
-  #geom_label(stat = "stratum", aes(label = after_stat(stratum)),ifelse(Condition == "Condition1", 1, 0)) +
   scale_x_discrete(limits = c("OTU", "Tree species"), expand = c(0.5, 0.5)) +
-  #ggtitle("UC Berkeley admissions and rejections, by sex and department")+
   scale_y_continuous(breaks = NULL) +
   theme_minimal() +
   theme(
