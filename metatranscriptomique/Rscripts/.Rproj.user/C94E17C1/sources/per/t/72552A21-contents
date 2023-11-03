@@ -1,0 +1,44 @@
+
+
+
+library(multcompView)
+model <- aov(tpm~layer_tree, data=Fungi_ratio)
+summary(model)
+tukey.res <-TukeyHSD(model, conf.level=.95)
+
+generate_label_df <- function(tukey.res, variable){
+  # Extract labels and factor levels from Tukey post-hoc 
+  Tukey.levels <- tukey.res[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+tmp <-Fungi_ratio %>% ungroup()%>% select(layer_tree,layer, tree_species ) %>% unique()
+# Apply the function on my dataset
+LABELS <- generate_label_df(tukey.res , "layer_tree")
+LABELS<-  LABELS %>% rename("layer_tree"=treatment) %>% left_join(tmp)
+
+
+
+mycolors <- GetMyColor(Fungi_ratio$tree_species)
+
+
+ggplot(data=Fungi_ratio, aes(x=layer_tree, y=tpm, fill=tree_species)) +
+  geom_boxplot(outlier.size = 0.5) + #facet_wrap(. ~ layer*tree_species, scales = "free_x") +
+  ggtitle(catToTest)+
+  scale_fill_manual(values=mycolors)+
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))+
+  geom_text(
+    data = LABELS,
+    aes(
+      x = layer_tree, 
+      y = max(Fungi_ratio$tpm)+10000, 
+      label = Letters
+    ))  +  facet_wrap(. ~ layer, scales = "free_x") +
+  #c("#999999",rev(c("#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7","springgreen4","mediumorchid4","cadetblue","lightpink","khaki","turquoise1")))) +
+  theme_bw()+
+  theme(axis.text.x=element_text(angle = 55,hjust=1), axis.title.x=element_blank())
